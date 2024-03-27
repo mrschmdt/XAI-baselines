@@ -14,6 +14,11 @@ class NeuralNetwork(nn.Module):
         """
         super().__init__()
         activation_fn = nn.ReLU()
+
+        if layers[-1] == 1:
+            self.is_binary = True
+        else:
+            self.is_binary = False
         
         #add layers to the layer_list
         layer_list = []
@@ -23,11 +28,17 @@ class NeuralNetwork(nn.Module):
         
         #output-layer
         layer_list.append(nn.Linear(layers[-2],layers[-1])) #Since we use nn.CrossEntropyLoss() as our loss function, there is no need for a softmax-activation function.
-
+ 
+        if self.is_binary:
+            layer_list.append(nn.Sigmoid())
+        
         self.model = nn.Sequential(*layer_list)
 
     def forward(self,x: torch.tensor):
-        return self.model(x.float())
+        if self.is_binary:
+            return self.model(x.float()).squeeze()
+        else:
+            return self.model(x.float())
     
     def predict(self,
         x: torch.Tensor,
@@ -46,11 +57,15 @@ class NeuralNetwork(nn.Module):
 
         y = self(x)
 
-        if detach:
-            return nn.functional.softmax(y).detach()
-        
+        if self.is_binary:
+            return y.squeeze()
+
         else:
-            return nn.functional.softmax(y)
+            if detach:
+                return nn.functional.softmax(y).detach()
+            
+            else:
+                return nn.functional.softmax(y)
 
     
     def get_max_feature(

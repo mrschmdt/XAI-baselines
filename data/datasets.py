@@ -19,9 +19,9 @@ class HELOC(Dataset):
             transform (callable, optional): Transform to be applied.
         """
         file_path = {
-            "train": r"./splitted/heloc_train.csv",
-            "test": r"./splitted/heloc_test.csv",
-            "validation": r"./splitted/heloc_validation.csv"
+            "train": r"data/splitted/heloc_train.csv",
+            "test": r"data/splitted/heloc_test.csv",
+            "validation": r"/splitted/heloc_validation.csv"
         }
         
         data_frame = pd.read_csv(file_path[mode],sep=";")
@@ -82,7 +82,6 @@ class HELOC(Dataset):
         datapoints_tensor = torch.from_numpy(datapoints_np)
 
         categories_df = data_df.iloc[:,0]
-        categories_np = pd.get_dummies(categories_df).to_numpy(dtype=np.float32)
-        categories_tensor = torch.from_numpy(categories_np)
+        categories_tensor = torch.tensor(categories_df.map(self.categories).to_numpy(dtype=np.float32))
 
         return datapoints_tensor, categories_tensor
