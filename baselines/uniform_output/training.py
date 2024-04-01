@@ -2,7 +2,7 @@ from network import NeuralNetwork
 from .model import CombinedBaselineNetwork, combined_model_loss_fn
 import torch
 from torch.utils.data import DataLoader
-import tqdm
+from tqdm import tqdm
 
 
 
@@ -40,7 +40,7 @@ def train_autobaseline(
     combined_baseline_model = CombinedBaselineNetwork(classification_model=classification_model,initial_baseline=initial_baseline)
     optimizer = torch.optim.Adam(params=combined_baseline_model.autobaseline_model.parameters(), lr=0.001)
 
-    for epoch in range(num_epochs):
+    for epoch in tqdm(range(num_epochs)):
         for x, y_baseline,y_model_output in dataloader:
             optimizer.zero_grad()
             autobaseline, model_output = combined_baseline_model(x)
