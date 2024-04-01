@@ -1,5 +1,5 @@
 from network import NeuralNetwork
-from model import CombinedBaselineNetwork, combined_model_loss_fn
+from .model import CombinedBaselineNetwork, combined_model_loss_fn
 import torch
 from torch.utils.data import DataLoader
 import tqdm
@@ -29,17 +29,18 @@ def train_autobaseline(
         n_inputs = classification_model.get_number_of_input_features()
         initial_baseline = torch.FloatTensor(n_inputs).uniform_(0.005,0.01)
 
+    num_outputs = classification_model.get_number_of_output_features()
     dataset_len = 1000
     x = torch.ones((dataset_len, 1)) #dataset_len x 1
     y_baseline = torch.unsqueeze(initial_baseline,0).repeat(dataset_len,1) #dataset_len x len(initial_baseline)
-    y_model_output = torch.ones((1000,7)) * (1/7)
+    y_model_output = torch.ones((1000,num_outputs)) * (1/num_outputs)
 
     dataset = torch.utils.data.TensorDataset(x,y_baseline,y_model_output)
     dataloader = DataLoader(dataset=dataset,batch_size=32) #since the dataset consists of the same datapoints, changing the batch_size will only effect the number of training steps.
     combined_baseline_model = CombinedBaselineNetwork(classification_model=classification_model,initial_baseline=initial_baseline)
     optimizer = torch.optim.Adam(params=combined_baseline_model.autobaseline_model.parameters(), lr=0.001)
 
-    for epoch in tqdm(range(num_epochs)):
+    for epoch in range(num_epochs):
         for x, y_baseline,y_model_output in dataloader:
             optimizer.zero_grad()
             autobaseline, model_output = combined_baseline_model(x)

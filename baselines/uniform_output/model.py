@@ -8,14 +8,15 @@ class AutoBaselineNetwork(nn.Module):
     Neural Network for autobaseline calculation. This is one part of the Network to calculate the Uniform Output Baseline (see CombinedBaselineNetwork).
     """
 
-    def __init__(self, initial_baseline : torch.Tensor):
+    def __init__(self,
+        initial_baseline : torch.Tensor):
         """
         Args:
             initial_baseline (torch.Tensor): Baseline to start from.    
         """
         super().__init__()
-
-        self.model = nn.Linear(1,16,bias=False)
+        num_inputs = len(initial_baseline)
+        self.model = nn.Linear(1,num_inputs,bias=False)
         initial_baseline_with_grad = copy.deepcopy(initial_baseline).requires_grad_(True)
         with torch.no_grad():
             self.model.weight[:,0] = initial_baseline_with_grad

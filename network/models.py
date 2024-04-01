@@ -67,7 +67,27 @@ class NeuralNetwork(nn.Module):
             else:
                 return nn.functional.softmax(y)
 
+    def get_number_of_input_features(self) -> int:
+        """
+        Returns the number of input features of the model.
+
+        Returns:
+            int: Number of input features.
+        """
+        return self.model[0].in_features
     
+    def get_number_of_output_features(self) -> int:
+        """
+        Returns the number of output features of the model.
+        
+        Returns:
+            int: Number of output features.
+        """
+        if self.is_binary:
+            return 2
+        else:
+            return self.model[-1].out_features
+
     def get_max_feature(
             self,
             x: torch.Tensor,

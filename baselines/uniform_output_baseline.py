@@ -1,4 +1,4 @@
-from uniform_output import train_autobaseline
+from .uniform_output import train_autobaseline
 import torch
 from .baseline import Baseline
 
@@ -9,7 +9,7 @@ class ZeroUniformOutputBaseline(Baseline):
             baseline_error_weight=0.4
     )->torch.Tensor:
         torch.manual_seed(48)
-        initial_baseline = torch.FloatTensor(self.n_inputs).uniform_(0.005,0.01)
+        initial_baseline = torch.FloatTensor(self.num_inputs).uniform_(0.005,0.01)
 
         return train_autobaseline(
             classification_model=self.classification_model,
