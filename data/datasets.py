@@ -21,16 +21,13 @@ class HELOC(Dataset):
         file_path = {
             "train": r"data/splitted/heloc_train.csv",
             "test": r"data/splitted/heloc_test.csv",
-            "validation": r"/splitted/heloc_validation.csv"
+            "validation": r"data/splitted/heloc_validation.csv"
         }
         
         data_frame = pd.read_csv(file_path[mode],sep=";")
 
         self.transform = transform
-        self.categories = {
-            "Bad": 0,
-            "Good": 1
-        }
+        self.categories = ["Bad", "Good"]
         self.datapoints, self.labels = self._normalize_and_split_into_data_and_categories(data_frame)
 
     def __len__(self):
@@ -82,6 +79,9 @@ class HELOC(Dataset):
         datapoints_tensor = torch.from_numpy(datapoints_np)
 
         categories_df = data_df.iloc[:,0]
-        categories_tensor = torch.tensor(categories_df.map(self.categories).to_numpy(dtype=np.float32))
+        categories_df = pd.get_dummies(categories_df)
+        categories_df.columns = self.categories
+        categories_np = categories_df.to_numpy(dtype=np.float32)
+        categories_tensor = torch.from_numpy(categories_np)
 
         return datapoints_tensor, categories_tensor

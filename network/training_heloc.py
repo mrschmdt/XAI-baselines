@@ -56,7 +56,7 @@ def train_model(
     torch.manual_seed(42)
     model = NeuralNetwork(layers=layers)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    loss_fn = torch.nn.BCELoss()
+    loss_fn = torch.nn.CrossEntropyLoss()
     test_loss_array, test_accuracy_array, train_loss_array, train_accuracy_array = [], [], [], []
 
     def _train_and_test_one_epoch(train: bool):
@@ -67,8 +67,9 @@ def train_model(
             for test_inputs,test_labels in test_dataloader:
                 test_predictions = model(test_inputs)
                 test_loss += loss_fn(test_predictions, test_labels).item()
-                test_accuracy.update(test_predictions, test_labels)
-                test_accuracy_per_class.update(test_predictions,  test_labels)
+                test = test_predictions.argmax(dim=1)
+                test_accuracy.update(test_predictions.argmax(dim=1), test_labels.argmax(dim=1))
+                test_accuracy_per_class.update(test_predictions.argmax(dim=1),  test_labels.argmax(dim=1))
 
         test_loss = test_loss / len(test_dataloader)
 
@@ -80,7 +81,7 @@ def train_model(
             with torch.no_grad():
                 train_predictions = model(train_inputs)
                 train_loss += loss_fn(train_predictions, train_labels).item()
-                train_accuracy.update(train_predictions, train_labels)
+                train_accuracy.update(train_predictions.argmax(dim=1), train_labels.argmax(dim=1))
         for train_inputs,train_labels in train_dataloader:
             if train:
                 #training
