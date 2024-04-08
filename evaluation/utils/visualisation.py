@@ -16,7 +16,8 @@ def _visualize_log_odds(
     """
     Serves the IntegratedGradientEvaluator class for visualization.
     """
-    x = np.linspace(0, 1, 20)
+    x_dims = len(mean)
+    x = np.linspace(0, 1, x_dims)
     ax = plt.plot(x, mean, label="Mean", linestyle="-", color="black")
     plt.plot(x, max, label="Max", linestyle="--", color="gray")
     plt.plot(x, min, label="Min", linestyle=":", color="gray")
@@ -123,8 +124,8 @@ def _visualize_log_odds_comparison(
 
     fig, (ax1, ax2) = plt.subplots(1,2, figsize=(6,2.7))
 
-
-    x = np.linspace(0, 1, 20)
+    x_dims = len(mean)
+    x = np.linspace(0, 1, x_dims)
 
 
     ax1.plot(x, certainty_mean_zero_baseline, color="black", label="Zero Baseline")
