@@ -25,18 +25,17 @@ class AttributionMethodsEvaluator():
         model: NeuralNetwork,
         dataset: str):
         self.model = model
-        self.dataset = TabularDataLoader(
-            path="Synthetic",
-            filename="test",
-            label="y",
-            scale="minmax")
+        
+        if dataset == "HELOC":
+            self.dataset = HELOC(mode="validation")
 
     def get_log_odds_of_datapoint(
             self,
             x,
-            attribute,
-            apply_log: bool = True,
-            masking_baseline = torch.zeros(20),
+            attribute:Callable,
+            apply_log:bool,
+            attribution_baseline: torch.Tensor,
+            masking_baseline: torch.Tensor,
             **kwargs) -> np.ndarray:
         """
         Calculates the log odds of one datapoint. Designed generically so it can work with different attribution methods. To work with an attribution method,
@@ -63,21 +62,21 @@ class AttributionMethodsEvaluator():
         Returns:
             certainties or log_odds_of_datapoint(np.ndarray): Depending on apply_log
         """
-        x = x.copy() #to avoid manipulation the dataset
+        x = torch.clone(x) #to avoid manipulation the dataset
 
-        target_label_index = self.model.predict(torch.from_numpy(x)).argmax().item()
+        target_label_index = self.model.predict(x).argmax().item()
 
-        inputs = torch.tensor(x, requires_grad=True).unsqueeze(0)
+        input = torch.tensor(x, requires_grad=True).unsqueeze(0)
 
-        attribution_scores = attribute(inputs=inputs,target=target_label_index)
+        attribution_scores = attribute(input=input,baseline=attribution_baseline.unsqueeze(dim=0)).squeeze(0)
         masking_order = torch.argsort(attribution_scores, descending=True)
-        masking_order = masking_order.numpy()
+        #masking_order = masking_order.numpy()
 
-        predictions_with_mask = np.zeros((20))
+        predictions_with_mask = torch.zeros_like(x)
 
         for i in range(len(predictions_with_mask)):
             x[masking_order[0:i]] = masking_baseline[masking_order[0:i]]
-            prediction = self.model.predict(torch.from_numpy(x))
+            prediction = self.model.predict(x)
             predictions_with_mask[i] = prediction[target_label_index]
 
         if apply_log:
@@ -90,8 +89,8 @@ class AttributionMethodsEvaluator():
     def get_random_references_of_datapoint(
             self,
             x,
+            masking_baseline: torch.Tensor,
             apply_log : bool = True,
-            masking_baseline = torch.zeros(20),
             **kwargs
             ) -> np.ndarray:
         """
@@ -105,19 +104,20 @@ class AttributionMethodsEvaluator():
         Returns:
             certainties or log_odds
         """
-        x = x.copy() #to avoid manipulation the dataset
+        x = torch.clone(x) #to avoid manipulation the dataset
         
-        target_label_index = self.model.predict(torch.from_numpy(x)).argmax().item()
-        # print("Model prediction: " + str(self.model.predict(x)))
-        random_masking_order = np.random.choice(a=20, size=20, replace=False)
+        target_label_index = self.model.predict(x).argmax().item()
+
+        x_len = len(x)
+        random_masking_order = np.random.choice(a=x_len, size=x_len, replace=False)
         
-        predictions_with_random_mask = np.zeros((20))
+        predictions_with_random_mask = np.zeros((x_len))
         # print("initial x: " + str(x))
 
         for i in range(len(predictions_with_random_mask)):
             x[random_masking_order[0:i]] = masking_baseline[random_masking_order[0:i]]
             # print("Masked input: " + str(x))
-            prediction = self.model.predict(torch.from_numpy(x))
+            prediction = self.model.predict(x)
             # print("Target-label-index: " + str(target_label_index))
             predictions_with_random_mask[i] = prediction[target_label_index]
             # print("Prediction: " + str(prediction))
@@ -199,8 +199,9 @@ class AttributionMethodsEvaluator():
             self,
             dataset: torch.utils.data.Dataset,
             attribute,
-            apply_log: bool = True,
-            masking_baseline = torch.zeros(20),
+            apply_log: bool,
+            attribution_baseline: torch.Tensor,
+            masking_baseline: torch.Tensor,
             **kwargs
         ) -> tuple[np.ndarray, #log-odds
               np.ndarray, #mean of log_odds
@@ -230,11 +231,11 @@ class AttributionMethodsEvaluator():
             **kwargs: additional arguments for specific attribution methods, e.g. baseline for integrated gradients. **kwargs get passed
                 to the attribute callable.
         """
-        log_odds = np.zeros((len(dataset.data),20))
+        log_odds = np.zeros((len(dataset),len(dataset[0][0])))
 
         for i in tqdm(range(len(log_odds))):
         #for i in tqdm(range(100)):
-            log_odds[i] = self.get_log_odds_of_datapoint(dataset.data[i],attribute=attribute,apply_log=apply_log, masking_baseline=masking_baseline, **kwargs)
+            log_odds[i] = self.get_log_odds_of_datapoint(dataset[i][0],attribute=attribute,apply_log=apply_log, attribution_baseline=attribution_baseline, masking_baseline=masking_baseline, **kwargs)
 
         #mean, max and min calculation
         mean = log_odds.mean(axis=0)
@@ -273,11 +274,11 @@ class AttributionMethodsEvaluator():
             mean (np.ndarray): mean of references
         """
 
-        random_references = np.zeros((len(dataset), 20))
+        random_references = np.zeros((len(dataset), len(dataset[0][0])))
 
         for i in tqdm(range(len(random_references))):
         #for i in tqdm(range(100)):
-            random_references[i] = self.get_random_references_of_datapoint(dataset.data[i], apply_log=apply_log, masking_baseline=masking_baseline, **kwargs)
+            random_references[i] = self.get_random_references_of_datapoint(dataset[i][0], apply_log=apply_log, masking_baseline=masking_baseline, **kwargs)
             
 
         mean = random_references.mean(axis=0)
@@ -323,8 +324,9 @@ class AttributionMethodsEvaluator():
             self,
             attribute,
             title, 
+            attribution_baseline : torch.Tensor,
+            masking_baseline : torch.Tensor,
             apply_log: bool = True,
-            masking_baseline = torch.zeros(20),
             **kwargs
         ) -> None:
         """
@@ -352,10 +354,10 @@ class AttributionMethodsEvaluator():
         """
 
         dataset_copy = copy.deepcopy(self.dataset)
-        log_odds, mean, max, min = self.get_log_odds_of_dataset(dataset_copy,attribute,apply_log,masking_baseline,**kwargs)
+        log_odds, mean, max, min = self.get_log_odds_of_dataset(dataset_copy,attribute,apply_log,attribution_baseline,masking_baseline,**kwargs)
 
         dataset_copy = copy.deepcopy(self.dataset)
-        random_references, random_references_mean = self.get_random_references_of_dataset(dataset=dataset_copy,apply_log=apply_log,masking_baseline=masking_baseline, **kwargs)
+        random_references, random_references_mean = self.get_random_references_of_dataset(dataset=dataset_copy,apply_log=apply_log,attribution_baseline=attribution_baseline,masking_baseline=masking_baseline, **kwargs)
 
         _visualize_log_odds(title, log_odds, mean, max, min, random_references_mean,apply_log)
 
