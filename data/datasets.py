@@ -2,6 +2,7 @@ import torch
 from torch.utils.data import Dataset
 import numpy as np
 import pandas as pd
+import os
 
 
 
@@ -15,17 +16,26 @@ class HELOC(Dataset):
         )->None:
         """
         Args:
-            mode (str): "train", "validation" or "test"
+            mode (str): "train", "validation", "test" or "all"
             transform (callable, optional): Transform to be applied.
         """
-        file_path = {
+        file_paths = {
             "train": r"data/splitted/heloc_train.csv",
             "test": r"data/splitted/heloc_test.csv",
-            "validation": r"data/splitted/heloc_validation.csv"
+            "validation": r"data/splitted/heloc_validation.csv",
+            "all": r"data/raw/heloc_dataset_v1.csv"
         }
-        
-        data_frame = pd.read_csv(file_path[mode],sep=";")
 
+        base_dir = os.getenv("BASE_DIR")
+        
+        file_path = os.path.join(base_dir, file_paths[mode])
+        
+        try: 
+            data_frame = pd.read_csv(file_path,sep=",")
+        except FileNotFoundError as e:
+            print(f"Exception during reading the file {file_path}. Have you set the base dir in the .env file? {e}")
+
+        
         self.transform = transform
         self.categories = ["Bad", "Good"]
         self.datapoints, self.labels = self._normalize_and_split_into_data_and_categories(data_frame)
