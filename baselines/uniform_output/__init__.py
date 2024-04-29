@@ -1,2 +1,3 @@
 from .model import CombinedBaselineNetwork, AutoBaselineNetwork, combined_model_loss_fn
 from .training import train_autobaseline
+from .nearest_furthest_calculator import get_furthest_baseline, get_closest_baseline

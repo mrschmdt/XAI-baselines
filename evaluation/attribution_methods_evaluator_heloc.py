@@ -10,6 +10,7 @@ from evaluation.utils.visualisation import _visualize_log_odds, _visualize_log_o
 from OpenXAI.openxai.dataloader import TabularDataLoader
 from data import HELOC
 
+from baselines import Baseline
 
 import copy
 
@@ -34,8 +35,8 @@ class AttributionMethodsEvaluator():
             x,
             attribute:Callable,
             apply_log:bool,
-            attribution_baseline: torch.Tensor,
-            masking_baseline: torch.Tensor,
+            attribution_baseline_: Baseline,
+            masking_baseline_: Baseline,
             **kwargs) -> np.ndarray:
         """
         Calculates the log odds of one datapoint. Designed generically so it can work with different attribution methods. To work with an attribution method,
@@ -62,15 +63,25 @@ class AttributionMethodsEvaluator():
         Returns:
             certainties or log_odds_of_datapoint(np.ndarray): Depending on apply_log
         """
+
+
+        attribution_baseline = attribution_baseline_.get_baseline(x=x)
+
+        if attribution_baseline_ != masking_baseline_: 
+            masking_baseline = masking_baseline_.get_baseline(x=x)
+        else:
+            masking_baseline = attribution_baseline
+
         x = torch.clone(x) #to avoid manipulation the dataset
 
         target_label_index = self.model.predict(x).argmax().item()
 
         input = torch.tensor(x, requires_grad=True).unsqueeze(0)
 
+
         attribution_scores = attribute(input=input,baseline=attribution_baseline.unsqueeze(dim=0)).squeeze(0)
         masking_order = torch.argsort(attribution_scores, descending=True)
-        #masking_order = masking_order.numpy()
+    
 
         predictions_with_mask = torch.zeros_like(x)
 
@@ -89,7 +100,7 @@ class AttributionMethodsEvaluator():
     def get_random_references_of_datapoint(
             self,
             x,
-            masking_baseline: torch.Tensor,
+            masking_baseline_: Baseline,
             apply_log : bool = True,
             **kwargs
             ) -> np.ndarray:
@@ -104,6 +115,7 @@ class AttributionMethodsEvaluator():
         Returns:
             certainties or log_odds
         """
+        masking_baseline = masking_baseline_.get_baseline(x=x)
         x = torch.clone(x) #to avoid manipulation the dataset
         
         target_label_index = self.model.predict(x).argmax().item()
@@ -200,8 +212,8 @@ class AttributionMethodsEvaluator():
             dataset: torch.utils.data.Dataset,
             attribute,
             apply_log: bool,
-            attribution_baseline: torch.Tensor,
-            masking_baseline: torch.Tensor,
+            attribution_baseline: Baseline,
+            masking_baseline: Baseline,
             **kwargs
         ) -> tuple[np.ndarray, #log-odds
               np.ndarray, #mean of log_odds
@@ -235,7 +247,7 @@ class AttributionMethodsEvaluator():
 
         for i in tqdm(range(len(log_odds))):
         #for i in tqdm(range(100)):
-            log_odds[i] = self.get_log_odds_of_datapoint(dataset[i][0],attribute=attribute,apply_log=apply_log, attribution_baseline=attribution_baseline, masking_baseline=masking_baseline, **kwargs)
+            log_odds[i] = self.get_log_odds_of_datapoint(dataset[i][0],attribute=attribute,apply_log=apply_log, attribution_baseline_=attribution_baseline, masking_baseline_=masking_baseline, **kwargs)
 
         #mean, max and min calculation
         mean = log_odds.mean(axis=0)
@@ -256,7 +268,7 @@ class AttributionMethodsEvaluator():
             self,
             dataset: torch.utils.data.Dataset,
             apply_log : bool = True,
-            masking_baseline = torch.zeros(20),
+            masking_baseline = Baseline,
             **kwargs
         ) -> tuple[np.ndarray, np.ndarray] :
         """
@@ -278,7 +290,7 @@ class AttributionMethodsEvaluator():
 
         for i in tqdm(range(len(random_references))):
         #for i in tqdm(range(100)):
-            random_references[i] = self.get_random_references_of_datapoint(dataset[i][0], apply_log=apply_log, masking_baseline=masking_baseline, **kwargs)
+            random_references[i] = self.get_random_references_of_datapoint(dataset[i][0], apply_log=apply_log, masking_baseline_=masking_baseline, **kwargs)
             
 
         mean = random_references.mean(axis=0)
@@ -324,8 +336,8 @@ class AttributionMethodsEvaluator():
             self,
             attribute,
             title, 
-            attribution_baseline : torch.Tensor,
-            masking_baseline : torch.Tensor,
+            attribution_baseline : Baseline,
+            masking_baseline : Baseline,
             apply_log: bool = True,
             **kwargs
         ) -> None:
