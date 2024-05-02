@@ -17,24 +17,25 @@ def _visualize_log_odds(
     Serves the IntegratedGradientEvaluator class for visualization.
     """
     x_dims = len(mean)
+    plt.figure(figsize=(7,6))
     x = np.linspace(0, 1, x_dims)
     ax = plt.plot(x, mean, label="Mean", linestyle="-", color="black")
     plt.plot(x, max, label="Max", linestyle="--", color="gray")
     plt.plot(x, min, label="Min", linestyle=":", color="gray")
     plt.plot(x, random_references_mean, label="Mean of Random Reference")
 
-    plt.xlabel("Anteil der maskierten Features")
+    plt.xlabel("Fraction of masked features", fontsize=16)
 
     if apply_log:
-        plt.ylabel("Log Odds Ratio")
+        plt.ylabel("Log Odds Ratio", fontsize=16)
     else: 
-        plt.ylabel("Modellausgabe")
+        plt.ylabel("Model output f(x)", fontsize=16)
 
-    plt.title(title)
+    plt.title(title, fontsize=20)
 
-    plt.legend()
+    plt.legend(fontsize=16)
     plt.tight_layout()
-    plt.savefig("log_odds_ig.eps", format="eps")
+    plt.savefig("log_odds_ig.png", format="png")
     # plt.show()
 
 def _visualize_completeness_deltas_comparison(
