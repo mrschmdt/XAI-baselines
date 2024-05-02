@@ -9,6 +9,7 @@ from network.models import NeuralNetwork
 from evaluation.utils.visualisation import _visualize_log_odds, _visualize_log_odds_comparison
 from OpenXAI.openxai.dataloader import TabularDataLoader
 from data import HELOC
+import random
 
 
 import copy
@@ -21,10 +22,11 @@ class AttributionMethodsEvaluator():
     This class serves the evaluation and comparison of the three attribution methods Integrated Gradients, Lime and KernelShap.
     """
 
-    def __init__(self, model: NeuralNetwork):
+    def __init__(self, model: NeuralNetwork, gauss_params: dict = None):
         self.model = model
         self.dataset = TabularDataLoader(
             path="Synthetic",
+            gauss_params=gauss_params,
             filename="test",
             label="y",
             scale="minmax")
@@ -140,6 +142,7 @@ class AttributionMethodsEvaluator():
         target_label_index = self.model.predict(torch.from_numpy(x)).argmax().item()
         ground_truth = np.absolute(ground_truth)
 
+
         masking_order = torch.argsort(torch.tensor(ground_truth), descending=True)
         masking_order = masking_order.numpy()
 
@@ -171,6 +174,7 @@ class AttributionMethodsEvaluator():
 
         predictions_with_mask=np.zeros(binary_mask.shape)
         predictions_with_mask[0] = self.model.predict(torch.from_numpy(x))[target_label_index]
+
 
         masked_indices = np.where(binary_mask == 1)[0]
 
@@ -288,21 +292,27 @@ class AttributionMethodsEvaluator():
             ground_truth: torch.Tensor,
             apply_log: bool,
             masking_baseline: torch.Tensor,
-            ground_truth_type:str
+            ground_truth_type:str,
+            num_samples_: int = 100
     ) -> tuple[np.ndarray, #log-odds
               np.ndarray, #mean of log_odds
               np.ndarray, #max of log_odds
               np.ndarray]:
         
-        log_odds = np.zeros((len(dataset),20))
+        if num_samples_ is None:
+            num_samples = len(dataset)
+        else:
+            num_samples = num_samples_
+        log_odds = np.zeros((num_samples,20))
 
         if ground_truth_type == "masked_weights":
             for i in tqdm(range(len(log_odds))):
                 log_odds[i] = self.get_log_odds_of_masked_weight_datapoint(dataset[i], ground_truth[i], apply_log, masking_baseline)
 
         elif ground_truth_type == "binary_mask":
-            for i in tqdm(range(len(log_odds))):
-                log_odds[i] = self.get_log_odds_of_binary_mask_datapoint(dataset[i], ground_truth[i], apply_log, masking_baseline)
+            sample_indices = random.sample(range(len(dataset)), num_samples)
+            for i, sample_i in enumerate(tqdm(sample_indices)):
+                log_odds[i] = self.get_log_odds_of_binary_mask_datapoint(dataset[sample_i], ground_truth[sample_i], apply_log, masking_baseline)
 
         #mean, max and min calculation
         mean = log_odds.mean(axis=0)
@@ -380,12 +390,13 @@ class AttributionMethodsEvaluator():
             title,
             apply_log,
             masking_baseline = torch.zeros(20),
+            num_samples=None,
             **kwargs
     ):
         dataset_copy = copy.deepcopy(self.dataset)
         ground_truth = dataset_copy.masks
 
-        log_odds, mean, max, min = self.get_log_odds_of_ground_truth_dataset(dataset_copy.data, ground_truth, apply_log, masking_baseline,"binary_mask")
+        log_odds, mean, max, min = self.get_log_odds_of_ground_truth_dataset(dataset_copy.data, ground_truth, apply_log, masking_baseline,"binary_mask",num_samples)
 
 
         dataset_copy = copy.deepcopy(self.dataset)

@@ -11,6 +11,7 @@ from data.datasets import HELOC
 def train_model(
         dataset: str,
         layers: list[int],
+        gauss_params: dict = None,
         num_epochs: int = 10,
         lr: float = 0.001,
         batch_size= 8
@@ -44,7 +45,8 @@ def train_model(
 
         train_dataloader, test_dataloader = return_loaders(
             data_name='synthetic',
-            batch_size=batch_size
+            batch_size=batch_size,
+            gauss_params=gauss_params
         )
     
     elif dataset == 'heloc':
@@ -128,6 +130,7 @@ def train_model(
 def train_model_and_visualize(
         dataset: str,
         layers: list[int],
+        gauss_params: dict = None,
         num_epochs: int = 10,
         lr: float = 0.001,
         batch_size= 8,
@@ -135,6 +138,7 @@ def train_model_and_visualize(
     model, test_loss_array, test_accuracy_array, train_loss_array, train_accuracy_array = train_model(
         dataset=dataset,
         layers=layers,
+        gauss_params=gauss_params,
         num_epochs=num_epochs,
         lr=lr,
         batch_size=batch_size)
@@ -145,3 +149,4 @@ def train_model_and_visualize(
         validation_accuracy=test_accuracy_array,
         validation_loss=test_loss_array
     )
+    return model
