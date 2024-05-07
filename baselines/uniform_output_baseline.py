@@ -2,7 +2,7 @@ from .uniform_output import train_autobaseline
 import torch
 from network import NeuralNetwork
 from .baseline import Baseline
-from .uniform_output.nearest_furthest_calculator import get_furthest_baseline, get_closest_baseline
+from .uniform_output.nearest_furthest_calculator import get_furthest_baseline, get_nearest_baseline
 
 class ZeroUniformOutputBaseline(Baseline):
 
