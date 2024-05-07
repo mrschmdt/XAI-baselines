@@ -214,6 +214,7 @@ class AttributionMethodsEvaluator():
             apply_log: bool,
             attribution_baseline: Baseline,
             masking_baseline: Baseline,
+            num_samples: int = 100,
             **kwargs
         ) -> tuple[np.ndarray, #log-odds
               np.ndarray, #mean of log_odds
@@ -243,10 +244,13 @@ class AttributionMethodsEvaluator():
             **kwargs: additional arguments for specific attribution methods, e.g. baseline for integrated gradients. **kwargs get passed
                 to the attribute callable.
         """
-        log_odds = np.zeros((len(dataset),len(dataset[0][0])))
+        if num_samples is None:
+            num_samples = len(dataset)
+
+
+        log_odds = np.zeros((num_samples,len(dataset[0][0])))
 
         for i in tqdm(range(len(log_odds))):
-        #for i in tqdm(range(100)):
             log_odds[i] = self.get_log_odds_of_datapoint(dataset[i][0],attribute=attribute,apply_log=apply_log, attribution_baseline_=attribution_baseline, masking_baseline_=masking_baseline, **kwargs)
 
         #mean, max and min calculation
@@ -339,6 +343,7 @@ class AttributionMethodsEvaluator():
             attribution_baseline : Baseline,
             masking_baseline : Baseline,
             apply_log: bool = True,
+            num_samples: int = 100,
             **kwargs
         ) -> None:
         """
@@ -366,7 +371,8 @@ class AttributionMethodsEvaluator():
         """
 
         dataset_copy = copy.deepcopy(self.dataset)
-        log_odds, mean, max, min = self.get_log_odds_of_dataset(dataset_copy,attribute,apply_log,attribution_baseline,masking_baseline,**kwargs)
+        log_odds, mean, max, min = self.get_log_odds_of_dataset(dataset_copy,attribute,apply_log,attribution_baseline,masking_baseline,num_samples,**kwargs)
+        print("Mean: " + str(mean))
 
         dataset_copy = copy.deepcopy(self.dataset)
         random_references, random_references_mean = self.get_random_references_of_dataset(dataset=dataset_copy,apply_log=apply_log,attribution_baseline=attribution_baseline,masking_baseline=masking_baseline, **kwargs)
