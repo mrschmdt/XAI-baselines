@@ -33,6 +33,7 @@ class AttributionMethodsEvaluator():
     def get_log_odds_of_datapoint(
             self,
             x,
+            i:int,
             attribute:Callable,
             apply_log:bool,
             attribution_baseline_: Baseline,
@@ -65,7 +66,7 @@ class AttributionMethodsEvaluator():
         """
 
 
-        attribution_baseline = attribution_baseline_.get_baseline(x=x)
+        attribution_baseline = attribution_baseline_.get_baseline(x=x,i=i)
 
         if attribution_baseline_ != masking_baseline_: 
             masking_baseline = masking_baseline_.get_baseline(x=x)
@@ -100,6 +101,7 @@ class AttributionMethodsEvaluator():
     def get_random_references_of_datapoint(
             self,
             x,
+            i: int,
             masking_baseline_: Baseline,
             apply_log : bool = True,
             **kwargs
@@ -115,7 +117,7 @@ class AttributionMethodsEvaluator():
         Returns:
             certainties or log_odds
         """
-        masking_baseline = masking_baseline_.get_baseline(x=x)
+        masking_baseline = masking_baseline_.get_baseline(x=x,i=i)
         x = torch.clone(x) #to avoid manipulation the dataset
         
         target_label_index = self.model.predict(x).argmax().item()
@@ -251,7 +253,7 @@ class AttributionMethodsEvaluator():
         log_odds = np.zeros((num_samples,len(dataset[0][0])))
 
         for i in tqdm(range(len(log_odds))):
-            log_odds[i] = self.get_log_odds_of_datapoint(dataset[i][0],attribute=attribute,apply_log=apply_log, attribution_baseline_=attribution_baseline, masking_baseline_=masking_baseline, **kwargs)
+            log_odds[i] = self.get_log_odds_of_datapoint(dataset[i][0],i=i,attribute=attribute,apply_log=apply_log, attribution_baseline_=attribution_baseline, masking_baseline_=masking_baseline, **kwargs)
 
         #mean, max and min calculation
         mean = log_odds.mean(axis=0)
@@ -294,7 +296,7 @@ class AttributionMethodsEvaluator():
 
         for i in tqdm(range(len(random_references))):
         #for i in tqdm(range(100)):
-            random_references[i] = self.get_random_references_of_datapoint(dataset[i][0], apply_log=apply_log, masking_baseline_=masking_baseline, **kwargs)
+            random_references[i] = self.get_random_references_of_datapoint(dataset[i][0],i, apply_log=apply_log, masking_baseline_=masking_baseline, **kwargs)
             
 
         mean = random_references.mean(axis=0)
