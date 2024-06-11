@@ -19,7 +19,6 @@ def get_furthest_baseline(
     distances = torch.cdist(x.unsqueeze(0), dataset[:][0])  # Compute pairwise distances between the target tensor and each tensor in the set
     max_distance, max_index = torch.max(distances, dim=1)  # Find the tensor with the maximum distance
     furthest_tensor = dataset[max_index][0].squeeze(0)
-    print(f"max Baseline: {furthest_tensor}")
     return furthest_tensor
 
 def get_nearest_baseline(
@@ -39,7 +38,6 @@ def get_nearest_baseline(
     distances = torch.cdist(x.unsqueeze(0), dataset[:][0])  # Compute pairwise distances between the target tensor and each tensor in the set
     min_distance, min_index = torch.min(distances, dim=1)  # Find the tensor with the maximum distance
     closest_tensor = dataset[min_index][0].squeeze(0)
-    print(f"min Baseline: {closest_tensor}")
     return closest_tensor
 
 def get_furthest_datapoints_of_training_set(
@@ -54,10 +52,28 @@ def get_furthest_datapoints_of_training_set(
         dataset_test: The test dataset.
 
     Returns:
-        The furthest baselines.
+        The furthest datapoint.
     """
     distances = torch.cdist(dataset_test[:][0], dataset_train[:][0])
     furthest_distances, furthest_indices = torch.max(distances, dim=1)
 
     return [dataset_train[i][0] for i in furthest_indices]
 
+def get_nearest_datapoints_of_training_set(
+        dataset_train: Dataset,
+        dataset_test: Dataset
+)->list[torch.Tensor]:
+    """
+    For each test datapoint, find the training sample that is nearest.
+    
+    Args:
+        dataset_train: The training dataset.
+        dataset_test: The test dataset.
+
+    Returns:
+        The nearest datapoint.
+    """
+    distances = torch.cdist(dataset_test[:][0], dataset_train[:][0])
+    nearest_distances, nearest_indices = torch.min(distances, dim=1)
+
+    return [dataset_train[i][0] for i in nearest_indices]
