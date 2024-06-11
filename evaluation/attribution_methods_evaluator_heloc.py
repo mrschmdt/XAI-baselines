@@ -6,11 +6,12 @@ from itertools import combinations
 from tqdm import tqdm
 
 from network.models import NeuralNetwork
-from evaluation.utils.visualisation import _visualize_log_odds, _visualize_log_odds_comparison
+from evaluation.utils.visualisation import _visualize_log_odds, _visualize_log_odds_comparison, visualize_log_odds_of_attribution_methods, visualize_logs_odds_with_different_masking_baselines
 from OpenXAI.openxai.dataloader import TabularDataLoader
 from data import HELOC
 
-from baselines import Baseline
+from baselines import Baseline, ZeroBaseline, ZeroUniformOutputBaseline, FurthestBaseline,NearestBaseline, MeanBaseline
+from baselines.precomputed import get_precomputed_furthest_uniform_output_baseline, get_precomputed_nearest_uniform_output_baseline
 
 import copy
 
@@ -29,6 +30,17 @@ class AttributionMethodsEvaluator():
         
         if dataset == "HELOC":
             self.dataset = HELOC(mode="validation")
+
+        self.baselines_mapping = {
+            "zero": ZeroBaseline(self.model),
+            "zero_uniform_output": ZeroUniformOutputBaseline(self.model),
+            "mean": MeanBaseline(self.dataset),
+            "furthest": FurthestBaseline(self.dataset),
+            "nearest": NearestBaseline(self.dataset),
+            "nearest_uniform_output": get_precomputed_nearest_uniform_output_baseline(),
+            "furthest_uniform_output": get_precomputed_furthest_uniform_output_baseline()
+        }
+
 
     def get_log_odds_of_datapoint(
             self,
@@ -69,7 +81,7 @@ class AttributionMethodsEvaluator():
         attribution_baseline = attribution_baseline_.get_baseline(x=x,i=i)
 
         if attribution_baseline_ != masking_baseline_: 
-            masking_baseline = masking_baseline_.get_baseline(x=x)
+            masking_baseline = masking_baseline_.get_baseline(x=x, i=i)
         else:
             masking_baseline = attribution_baseline
 
@@ -416,3 +428,138 @@ class AttributionMethodsEvaluator():
         random_references, random_references_mean = self.get_random_references_of_dataset(dataset=dataset_copy,apply_log=apply_log,masking_baseline=masking_baseline, **kwargs)
 
         _visualize_log_odds(title, log_odds, mean, max, min, random_references_mean,apply_log)
+
+    def visualize_log_odds_of_attribution_methods(
+            self,
+            attribute: Callable,
+            apply_log: bool = False,
+            num_samples: int = 100,
+            title=""
+    ):
+
+        test_dataset = HELOC(mode="test")
+        zero_baseline = ZeroBaseline(self.model)
+        zero_uniform_output_baseline = ZeroUniformOutputBaseline(self.model)
+        mean_baseline = MeanBaseline(test_dataset)
+        furthest_baseline = FurthestBaseline(test_dataset)
+        nearest_baseline = NearestBaseline(test_dataset)
+        nearest_uniform_output_baseline = get_precomputed_nearest_uniform_output_baseline()
+        furthest_uniform_output_baseline = get_precomputed_furthest_uniform_output_baseline()
+
+        dataset_copy = copy.deepcopy(self.dataset)
+        zero_baseline_log_odds_mean = self.get_log_odds_of_dataset(
+            dataset=dataset_copy,
+            attribute=attribute,
+            apply_log=apply_log,
+            attribution_baseline=zero_baseline,
+            masking_baseline=zero_baseline,
+            num_samples=num_samples
+        )[1]
+
+        dataset_copy = copy.deepcopy(self.dataset)
+        zero_uniform_output_baseline_log_odds_mean = self.get_log_odds_of_dataset(
+            dataset=dataset_copy,
+            attribute=attribute,
+            apply_log=apply_log,
+            attribution_baseline=zero_uniform_output_baseline,
+            masking_baseline=zero_uniform_output_baseline,
+            num_samples=num_samples
+        )[1]
+
+        dataset_copy = copy.deepcopy(self.dataset)
+        mean_baseline_log_odds_mean = self.get_log_odds_of_dataset(
+            dataset=dataset_copy,
+            attribute=attribute,
+            apply_log=apply_log,
+            attribution_baseline=mean_baseline,
+            masking_baseline=mean_baseline,
+            num_samples=num_samples
+        )[1]
+
+        dataset_copy = copy.deepcopy(self.dataset)
+        furthest_baseline_log_odds_mean = self.get_log_odds_of_dataset(
+            dataset=dataset_copy,
+            attribute=attribute,
+            apply_log=apply_log,
+            attribution_baseline=furthest_baseline,
+            masking_baseline=furthest_baseline,
+            num_samples=num_samples
+        )[1]
+
+        dataset_copy = copy.deepcopy(self.dataset)
+        nearest_baseline_log_odds_mean = self.get_log_odds_of_dataset(
+            dataset=dataset_copy,
+            attribute=attribute,
+            apply_log=apply_log,
+            attribution_baseline=nearest_baseline,
+            masking_baseline=nearest_baseline,
+            num_samples=num_samples
+        )[1]
+
+        dataset_copy = copy.deepcopy(self.dataset)
+        nearest_uniform_output_baseline_log_odds_mean = self.get_log_odds_of_dataset(
+            dataset=dataset_copy,
+            attribute=attribute,
+            apply_log=apply_log,
+            attribution_baseline=nearest_uniform_output_baseline,
+            masking_baseline=nearest_uniform_output_baseline
+        )[1]
+
+        dataset_copy = copy.deepcopy(self.dataset)
+        furthest_uniform_output_baseline_log_odds_mean = self.get_log_odds_of_dataset(
+            dataset=dataset_copy,
+            attribute=attribute,
+            apply_log=False,
+            attribution_baseline=furthest_uniform_output_baseline,
+            masking_baseline=furthest_uniform_output_baseline
+        )[1]
+
+        visualize_log_odds_of_attribution_methods(
+            zero_baseline_log_odds_mean=zero_baseline_log_odds_mean,
+            zero_uniform_output_baseline_log_odds_mean=zero_uniform_output_baseline_log_odds_mean,
+            mean_baseline_log_odds_mean=mean_baseline_log_odds_mean,
+            furthest_baseline_log_odds_mean=furthest_baseline_log_odds_mean,
+            nearest_baseline_log_odds_mean=nearest_baseline_log_odds_mean,
+            nearest_uniform_output_baseline_log_odds_mean=nearest_uniform_output_baseline_log_odds_mean,
+            furthest_uniform_output_baseline_log_odds_mean=furthest_uniform_output_baseline_log_odds_mean,
+            apply_log=apply_log,
+            title=title
+        )
+
+    def get_log_odds_of_attribution_with_all_masking_baselines(
+            self,
+            attribute: Callable,
+            attribution_baseline_str: str,
+            apply_log: bool = False,
+            num_samples: int = 100
+    ):
+
+        attribution_baseline = self.baselines_mapping[attribution_baseline_str]
+
+        log_odds = {}
+
+        for key in self.baselines_mapping.keys():
+            masking_baseline = self.baselines_mapping[key]
+            dataset_copy = copy.deepcopy(self.dataset)
+            log_odds[key] = self.get_log_odds_of_dataset(
+                dataset=dataset_copy,
+                attribute=attribute,
+                apply_log=apply_log,
+                attribution_baseline=attribution_baseline,
+                masking_baseline=masking_baseline,
+                num_samples=num_samples
+            )[1]
+        
+        return log_odds
+    
+    def visualize_logs_odds_with_different_masking_baselines(
+            self,
+            attribute: Callable,
+            attribution_baseline_str: str,
+            apply_log: bool = False,
+            num_samples: int = 100,
+            title="",
+            save_fig: bool = False
+    ):
+        log_odds_dict = self.get_log_odds_of_attribution_with_all_masking_baselines(attribute, attribution_baseline_str, apply_log, num_samples)
+        visualize_logs_odds_with_different_masking_baselines(log_odds_dict, attribution_baseline_str, title, apply_log, save_fig=save_fig)

@@ -2,6 +2,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sb
 import torch
+import os
+
+COLORS = ["black", "blue", "green", "red", "purple", "orange", "yellow"]
+from itertools import cycle
+
+BASE_DIR = os.getenv("BASE_DIR")
 
 
 def _visualize_log_odds(
@@ -151,4 +157,72 @@ def _visualize_log_odds_comparison(
     plt.savefig("./figures/ig_log_odds.eps", format="eps",bbox_extra_artists=(lgd,),bbox_inches='tight')
 
 
+def visualize_log_odds_of_attribution_methods(
+        zero_baseline_log_odds_mean : np.ndarray,
+        zero_uniform_output_baseline_log_odds_mean : np.ndarray,
+        mean_baseline_log_odds_mean : np.ndarray,
+        furthest_baseline_log_odds_mean : np.ndarray,
+        nearest_baseline_log_odds_mean : np.ndarray,
+        nearest_uniform_output_baseline_log_odds_mean : np.ndarray,
+        furthest_uniform_output_baseline_log_odds_mean : np.ndarray,
+        apply_log: bool = False,
+        title: str = ""
+    ):
+    plt.figure(figsize=(8,6))
+    x_dims = len(zero_baseline_log_odds_mean)
+    x = np.linspace(0,1, x_dims)
+    plt.plot(x, zero_baseline_log_odds_mean, label="Zero Baseline", color='black')
+    plt.plot(x, zero_uniform_output_baseline_log_odds_mean, label="Zero Uniform Output Baseline", color='blue')
+    plt.plot(x, mean_baseline_log_odds_mean, label="Mean Baseline", color='green')
+    plt.plot(x, furthest_baseline_log_odds_mean, label="Furthest Baseline", color='red')
+    plt.plot(x, nearest_baseline_log_odds_mean, label="Nearest Baseline", color='purple')
+    plt.plot(x, nearest_uniform_output_baseline_log_odds_mean, label="Nearest Uniform Output Baseline", color='orange')
+    plt.plot(x, furthest_uniform_output_baseline_log_odds_mean, label="Furthest Uniform Output Baseline", color='yellow')
+
+
+    plt.xlabel("Fraction of masked features", fontsize=16)
+    if apply_log:
+        plt.ylabel("Log Odds Ratio", fontsize=16)
+    else: 
+        plt.ylabel("Model output f(x)", fontsize=16)
+
+    plt.title(title, fontsize=20)
+    plt.tight_layout()
+
+    plt.legend(fontsize=14, loc="upper right")
+    plt.show()
+
+def visualize_logs_odds_with_different_masking_baselines(
+    dict_of_log_odds: dict[str, np.ndarray],
+    black_line: str,
+    title: str="",
+    apply_log: bool = False,
+    save_fig: bool = False
+):
+    
+    colors_cycle = cycle(COLORS)
+    next(colors_cycle)
+
+    plt.figure(figsize=(8,6))
+    x_dims = len(dict_of_log_odds[list(dict_of_log_odds.keys())[0]])
+    x = np.linspace(0,1, x_dims)
+    for key, value in dict_of_log_odds.items():
+        if key == black_line:
+            plt.plot(x, value, label=key, color='black')
+        else:
+            plt.plot(x, value, label=key, color=next(colors_cycle))
+    
+    plt.xlabel("Fraction of masked features", fontsize=16)
+    if apply_log:
+        plt.ylabel("Log Odds Ratio", fontsize=16)
+    else: 
+        plt.ylabel("Model output f(x)", fontsize=16)
+
+    plt.title(title, fontsize=16)
+    plt.legend(fontsize=14, loc="upper right")
+    plt.tight_layout()
+    if save_fig:
+        path = os.path.join(BASE_DIR, "figures", f"log_odds_comp_different_masking_baselines_attr_{black_line}.png")
+        plt.savefig(path, dpi=300)
+    plt.show()
 
