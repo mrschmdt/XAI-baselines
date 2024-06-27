@@ -4,7 +4,7 @@ import numpy as np
 from typing import Callable
 from itertools import combinations
 from tqdm import tqdm
-
+from .utils import feature_agreement, feature_rank_agreement
 from network.models import NeuralNetwork
 from evaluation.utils.visualisation import _visualize_log_odds, _visualize_log_odds_comparison, visualize_log_odds_of_attribution_methods, visualize_logs_odds_with_different_masking_baselines
 from OpenXAI.openxai.dataloader import TabularDataLoader
@@ -14,6 +14,8 @@ from baselines import Baseline, ZeroBaseline, ZeroUniformOutputBaseline, Furthes
 from baselines.precomputed import get_precomputed_furthest_uniform_output_baseline, get_precomputed_nearest_uniform_output_baseline
 
 import copy
+import statistics
+from attribution import IntegratedGradient, Lime, BShap
 
 
 
@@ -40,6 +42,14 @@ class AttributionMethodsEvaluator():
             "nearest_uniform_output": get_precomputed_nearest_uniform_output_baseline(),
             "furthest_uniform_output": get_precomputed_furthest_uniform_output_baseline()
         }
+
+        self.attribution_methods = {
+            "integrated_gradients": IntegratedGradient(self.model),
+            "lime": Lime(self.model),
+            "bshap": BShap(self.model)
+        }
+
+
 
 
     def get_log_odds_of_datapoint(
@@ -349,6 +359,43 @@ class AttributionMethodsEvaluator():
         min = log_odds[min_index]
 
         return log_odds, mean, max, min
+    
+    def get_feature_agreement_matrix(
+        self,
+        k: int,
+        rank_agreement: bool = False
+    )-> tuple[np.ndarray, np.ndarray]:
+        
+        distance_matrix_mean = np.zeros((len(self.baselines_mapping.keys())*3, len(self.baselines_mapping.keys())*3))
+        distance_matrix_std = np.zeros((len(self.baselines_mapping.keys())*3, len(self.baselines_mapping.keys())*3))
+        baselines: list[Baseline] = list(self.baselines_mapping.values())
+        print(f"baselines: {baselines}")
+        attribution_methods: list = list(self.attribution_methods.values())
+        print(f"attribution_methods: {attribution_methods}")
+
+        for baseline_a in tqdm(baselines):
+            for index_am_a, am_a in enumerate(attribution_methods):
+                for index_baseline_a, baseline_a in enumerate(baselines):
+                    for index_am_b,am_b in enumerate(attribution_methods):
+                        for index_baseline_b, baseline_b in enumerate(baselines):
+                            agreements: list[float] = []
+                            for i in range(len(self.dataset)):
+                                x = self.dataset[i][0]
+                                x = torch.clone(x)
+                                input = torch.tensor(x, requires_grad=True).unsqueeze(0)
+                                attribution_scores_a = am_a.attribute(input = input, baseline = baseline_a.get_baseline(x=x,i=i).unsqueeze(dim=0)).squeeze(0)
+                                attribution_scores_b = am_b.attribute(input = input, baseline = baseline_b.get_baseline(x=x,i=i).unsqueeze(dim=0)).squeeze(0)
+                                agreements.append(feature_agreement(attribution_scores_a, attribution_scores_b, k))
+                            print(f"last computed: {am_a} {baseline_a} {am_b} {baseline_b} {agreements[-1]}")
+                            distance_matrix_mean[index_am_a*3+index_baseline_a][index_am_b*3+index_baseline_b] = statistics.mean(agreements)
+                            distance_matrix_std[index_am_a*3+index_baseline_a][index_am_b*3+index_baseline_b] = statistics.stdev(agreements)
+                        break
+                    break
+                break
+            break
+        return (distance_matrix_mean, distance_matrix_std)
+
+
 
     def visualize_log_odds_of_dataset(
             self,
