@@ -11,7 +11,7 @@ from OpenXAI.openxai.dataloader import TabularDataLoader
 from data import HELOC
 
 from baselines import Baseline, ZeroBaseline, ZeroUniformOutputBaseline, FurthestBaseline,NearestBaseline, MeanBaseline
-from baselines.precomputed import get_precomputed_furthest_uniform_output_baseline, get_precomputed_nearest_uniform_output_baseline
+from baselines.precomputed import get_precomputed_furthest_uniform_output_baseline, get_precomputed_nearest_uniform_output_baseline, get_precomputed_zero_uniform_ouput_baseline
 
 import copy
 import statistics
@@ -35,7 +35,7 @@ class AttributionMethodsEvaluator():
 
         self.baselines_mapping = {
             "zero": ZeroBaseline(self.model),
-            "zero_uniform_output": ZeroUniformOutputBaseline(self.model),
+            "zero_uniform_output": get_precomputed_zero_uniform_ouput_baseline(),
             "mean": MeanBaseline(self.dataset),
             "furthest": FurthestBaseline(self.dataset),
             "nearest": NearestBaseline(self.dataset),
@@ -364,7 +364,7 @@ class AttributionMethodsEvaluator():
         self,
         k: int,
         rank_agreement: bool = False
-    )-> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         
         distance_matrix_mean = np.zeros((len(self.baselines_mapping.keys())*3, len(self.baselines_mapping.keys())*3))
         distance_matrix_std = np.zeros((len(self.baselines_mapping.keys())*3, len(self.baselines_mapping.keys())*3))
@@ -379,6 +379,7 @@ class AttributionMethodsEvaluator():
                     for index_am_b,am_b in enumerate(attribution_methods):
                         for index_baseline_b, baseline_b in enumerate(baselines):
                             agreements: list[float] = []
+                            print(f"now computing: baseline_a: {baseline_a}, am_a: {am_a}, baseline_b: {baseline_b}, am_b: {am_b}")
                             for i in range(len(self.dataset)):
                                 x = self.dataset[i][0]
                                 x = torch.clone(x)
@@ -386,16 +387,10 @@ class AttributionMethodsEvaluator():
                                 attribution_scores_a = am_a.attribute(input = input, baseline = baseline_a.get_baseline(x=x,i=i).unsqueeze(dim=0)).squeeze(0)
                                 attribution_scores_b = am_b.attribute(input = input, baseline = baseline_b.get_baseline(x=x,i=i).unsqueeze(dim=0)).squeeze(0)
                                 agreements.append(feature_agreement(attribution_scores_a, attribution_scores_b, k))
-                            print(f"last computed: {am_a} {baseline_a} {am_b} {baseline_b} {agreements[-1]}")
                             distance_matrix_mean[index_am_a*3+index_baseline_a][index_am_b*3+index_baseline_b] = statistics.mean(agreements)
                             distance_matrix_std[index_am_a*3+index_baseline_a][index_am_b*3+index_baseline_b] = statistics.stdev(agreements)
-                        break
-                    break
-                break
-            break
+
         return (distance_matrix_mean, distance_matrix_std)
-
-
 
     def visualize_log_odds_of_dataset(
             self,
@@ -481,7 +476,8 @@ class AttributionMethodsEvaluator():
             attribute: Callable,
             apply_log: bool = False,
             num_samples: int = 100,
-            title=""
+            title="",
+            save_fig: bool = False
     ):
 
         test_dataset = HELOC(mode="test")
@@ -570,7 +566,8 @@ class AttributionMethodsEvaluator():
             nearest_uniform_output_baseline_log_odds_mean=nearest_uniform_output_baseline_log_odds_mean,
             furthest_uniform_output_baseline_log_odds_mean=furthest_uniform_output_baseline_log_odds_mean,
             apply_log=apply_log,
-            title=title
+            title=title,
+            save_fig=save_fig
         )
 
     def get_log_odds_of_attribution_with_all_masking_baselines(
