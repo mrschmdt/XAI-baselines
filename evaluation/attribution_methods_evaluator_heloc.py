@@ -6,16 +6,21 @@ from itertools import combinations
 from tqdm import tqdm
 from .utils import feature_agreement, feature_rank_agreement
 from network.models import NeuralNetwork
-from evaluation.utils.visualisation import _visualize_log_odds, _visualize_log_odds_comparison, visualize_log_odds_of_attribution_methods, visualize_logs_odds_with_different_masking_baselines
+from evaluation.utils.visualisation import _visualize_log_odds, visualize_feature_agreement_matrices, visualize_log_odds_of_attribution_methods, visualize_logs_odds_with_different_masking_baselines
 from OpenXAI.openxai.dataloader import TabularDataLoader
 from data import HELOC
 
 from baselines import Baseline, ZeroBaseline, ZeroUniformOutputBaseline, FurthestBaseline,NearestBaseline, MeanBaseline
 from baselines.precomputed import get_precomputed_furthest_uniform_output_baseline, get_precomputed_nearest_uniform_output_baseline, get_precomputed_zero_uniform_ouput_baseline
-
+import itertools
 import copy
 import statistics
 from attribution import IntegratedGradient, Lime, BShap
+
+import pickle
+import os
+
+BASE_DIR = os.getenv('BASE_DIR')
 
 
 
@@ -33,18 +38,20 @@ class AttributionMethodsEvaluator():
         if dataset == "HELOC":
             self.dataset = HELOC(mode="validation")
 
+        test_dataset = HELOC(mode="test")
+
         self.baselines_mapping = {
             "zero": ZeroBaseline(self.model),
-            "zero_uniform_output": get_precomputed_zero_uniform_ouput_baseline(),
-            "mean": MeanBaseline(self.dataset),
-            "furthest": FurthestBaseline(self.dataset),
-            "nearest": NearestBaseline(self.dataset),
-            "nearest_uniform_output": get_precomputed_nearest_uniform_output_baseline(),
-            "furthest_uniform_output": get_precomputed_furthest_uniform_output_baseline()
+            "zero_uniform": get_precomputed_zero_uniform_ouput_baseline(),
+            "mean": MeanBaseline(test_dataset),
+            "furthest": FurthestBaseline(test_dataset),
+            "nearest": NearestBaseline(test_dataset),
+            "nearest_uniform": get_precomputed_nearest_uniform_output_baseline(),
+            "furthest_uniform": get_precomputed_furthest_uniform_output_baseline()
         }
 
         self.attribution_methods = {
-            "integrated_gradients": IntegratedGradient(self.model),
+            "ig": IntegratedGradient(self.model),
             "lime": Lime(self.model),
             "bshap": BShap(self.model)
         }
@@ -366,29 +373,39 @@ class AttributionMethodsEvaluator():
         rank_agreement: bool = False
     ) -> tuple[np.ndarray, np.ndarray]:
         
-        distance_matrix_mean = np.zeros((len(self.baselines_mapping.keys())*3, len(self.baselines_mapping.keys())*3))
-        distance_matrix_std = np.zeros((len(self.baselines_mapping.keys())*3, len(self.baselines_mapping.keys())*3))
+        distance_matrix_mean = np.ones((len(self.baselines_mapping.keys())*3, len(self.baselines_mapping.keys())*3))*10
+        distance_matrix_std = np.ones((len(self.baselines_mapping.keys())*3, len(self.baselines_mapping.keys())*3))*10
         baselines: list[Baseline] = list(self.baselines_mapping.values())
-        print(f"baselines: {baselines}")
         attribution_methods: list = list(self.attribution_methods.values())
-        print(f"attribution_methods: {attribution_methods}")
+        attr_meth_baseline_combinations = list(itertools.product(attribution_methods, baselines))
+        
+        for i, combination_i in enumerate(attr_meth_baseline_combinations):
+            print(f"now computing: {i}/{len(attr_meth_baseline_combinations)}")
+            for j in range(i, len(attr_meth_baseline_combinations)):
+                combination_j = attr_meth_baseline_combinations[j]
+                attr_meth_i = combination_i[0]
+                baseline_i = combination_i[1]
+                attr_meth_j = combination_j[0]
+                baseline_j = combination_j[1]
+                agreements: list[float] = []
+                if i == j:
+                    agreements.extend([1,1])
 
-        for baseline_a in tqdm(baselines):
-            for index_am_a, am_a in enumerate(attribution_methods):
-                for index_baseline_a, baseline_a in enumerate(baselines):
-                    for index_am_b,am_b in enumerate(attribution_methods):
-                        for index_baseline_b, baseline_b in enumerate(baselines):
-                            agreements: list[float] = []
-                            print(f"now computing: baseline_a: {baseline_a}, am_a: {am_a}, baseline_b: {baseline_b}, am_b: {am_b}")
-                            for i in range(len(self.dataset)):
-                                x = self.dataset[i][0]
-                                x = torch.clone(x)
-                                input = torch.tensor(x, requires_grad=True).unsqueeze(0)
-                                attribution_scores_a = am_a.attribute(input = input, baseline = baseline_a.get_baseline(x=x,i=i).unsqueeze(dim=0)).squeeze(0)
-                                attribution_scores_b = am_b.attribute(input = input, baseline = baseline_b.get_baseline(x=x,i=i).unsqueeze(dim=0)).squeeze(0)
-                                agreements.append(feature_agreement(attribution_scores_a, attribution_scores_b, k))
-                            distance_matrix_mean[index_am_a*3+index_baseline_a][index_am_b*3+index_baseline_b] = statistics.mean(agreements)
-                            distance_matrix_std[index_am_a*3+index_baseline_a][index_am_b*3+index_baseline_b] = statistics.stdev(agreements)
+                else:
+                    for datapoint_idx in range(len(self.dataset)):
+                        x = self.dataset[datapoint_idx][0]
+                        x = torch.clone(x)
+                        input = x.clone().detach().requires_grad_(True).unsqueeze(0)
+                        attribution_scores_i = attr_meth_i.attribute(input = input, baseline = baseline_i.get_baseline(x=x,i=datapoint_idx).unsqueeze(dim=0)).squeeze(0)
+                        attribution_scores_j = attr_meth_j.attribute(input = input, baseline = baseline_j.get_baseline(x=x,i=datapoint_idx).unsqueeze(dim=0)).squeeze(0)
+                        if rank_agreement:
+                            agreements.append(feature_rank_agreement(attribution_scores_i, attribution_scores_j, k))
+                        else:
+                            agreements.append(feature_agreement(attribution_scores_i, attribution_scores_j, k))
+                distance_matrix_mean[i][j] = statistics.mean(agreements)
+                distance_matrix_mean[j][i] = statistics.mean(agreements)
+                distance_matrix_std[i][j] = statistics.stdev(agreements)
+                distance_matrix_std[j][i] = statistics.stdev(agreements)
 
         return (distance_matrix_mean, distance_matrix_std)
 
@@ -607,3 +624,20 @@ class AttributionMethodsEvaluator():
     ):
         log_odds_dict = self.get_log_odds_of_attribution_with_all_masking_baselines(attribute, attribution_baseline_str, apply_log, num_samples)
         visualize_logs_odds_with_different_masking_baselines(log_odds_dict, attribution_baseline_str, title, apply_log, save_fig=save_fig)
+
+    def visualize_precomputed_feature_agreement_matrices(
+        self,
+        k: int,
+        rank_agreement: bool = False,
+        save_fig: bool = False
+    )->None:
+        
+        baselines: list[Baseline] = list(self.baselines_mapping.keys())
+        attribution_methods: list = list(self.attribution_methods.keys())
+        attr_meth_baseline_combinations = list(itertools.product(attribution_methods, baselines))
+        labels = [f"{attr_meth}-{baseline}" for attr_meth, baseline in attr_meth_baseline_combinations]
+        
+
+        (fa_mean, fa_variance) = pickle.load(open(os.path.join(BASE_DIR, 'evaluation', 'precomputed', f'feature_agreement_matrix_k_{k}_rank_agreement_{rank_agreement}.pkl'), 'rb'))
+
+        visualize_feature_agreement_matrices(k,fa_mean,fa_variance, labels, rank_agreement=rank_agreement, save_fig=save_fig)

@@ -15,3 +15,12 @@ def precompute_feature_agreement_matrices_heloc(
 
         agreement_matrix = evaluator.get_feature_agreement_matrix(k, rank_agreement)
         pickle.dump(agreement_matrix, open(os.path.join(BASE_DIR, 'evaluation', 'precomputed', f'feature_agreement_matrix_k_{k}_rank_agreement_{rank_agreement}.pkl'), 'wb'))
+
+def get_precomputed_feature_agreement_matrices_heloc(
+    ks = list[int],
+    rank_agreement: bool = False
+)->dict:
+    matrices = {}
+    for k in ks:
+        matrices[k] = pickle.load(open(os.path.join(BASE_DIR, 'evaluation', 'precomputed', f'feature_agreement_matrix_k_{k}_rank_agreement_{rank_agreement}.pkl'), 'rb'))
+    return matrices
