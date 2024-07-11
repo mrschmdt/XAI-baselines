@@ -277,6 +277,9 @@ def visualize_feature_agreement_matrices(
     cbar.ax.tick_params(labelsize=14)
 
     plt.subplots_adjust(hspace=0.9)
+    plt.subplots_adjust(left=0.1)
+
+    plt.tight_layout()
 
     if save_fig:
         path = os.path.join(BASE_DIR, "figures", f"feature_agreement_matrix_k_{k}_rank_agreement_{rank_agreement}.png")
