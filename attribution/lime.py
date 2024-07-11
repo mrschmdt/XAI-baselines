@@ -1,5 +1,6 @@
 from captum.attr import Lime as LimeCaptum
 import torch
+import numpy as np
 
 class Lime:
     def __init__(self, forward_func: callable):
@@ -14,7 +15,8 @@ class Lime:
         attributions = lime.attribute(
             inputs = input,
             baselines = baseline, 
-            target=target_index
+            target=target_index,
+            n_samples=100
         )
 
         return attributions
