@@ -56,8 +56,8 @@ def train_model(
         train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
-    train_accuracy = torchmetrics.Accuracy(task="multiclass",num_classes=10,average="macro")
-    test_accuracy = torchmetrics.Accuracy(task="multiclass",num_classes=10,average="macro")
+    train_accuracy = torchmetrics.Accuracy(task="multiclass",num_classes=10,average="micro")
+    test_accuracy = torchmetrics.Accuracy(task="multiclass",num_classes=10,average="micro")
     test_accuracy_per_class = torchmetrics.Accuracy(task="multiclass",num_classes=10,average=None)
 
 
