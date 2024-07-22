@@ -42,12 +42,12 @@ class AttributionMethodsEvaluator():
 
         self.baselines_mapping = {
             "zero": ZeroBaseline(self.model),
-            "zero_uniform": get_precomputed_zero_uniform_ouput_baseline(),
+            "zero_uniform": get_precomputed_zero_uniform_ouput_baseline("heloc"),
             "mean": MeanBaseline(test_dataset),
             "furthest": FurthestBaseline(test_dataset),
             "nearest": NearestBaseline(test_dataset),
-            "nearest_uniform": get_precomputed_nearest_uniform_output_baseline(),
-            "furthest_uniform": get_precomputed_furthest_uniform_output_baseline()
+            "nearest_uniform": get_precomputed_nearest_uniform_output_baseline("heloc"),
+            "furthest_uniform": get_precomputed_furthest_uniform_output_baseline("heloc")
         }
 
         self.attribution_methods = {
